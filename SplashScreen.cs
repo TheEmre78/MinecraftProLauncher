@@ -1,91 +1,108 @@
+using CmlLib.Core.Auth;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Net.NetworkInformation;
-using System.Text;
-using System.Threading.Tasks;
-using System.Web.UI.WebControls;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace RL_RoseLone
 {
-    public partial class splashscreen : Form
+    public partial class Login : Form
     {
-        public splashscreen()
+        public Login()
         {
             InitializeComponent();
+            Init_Data();
         }
 
-        private int counter = 0;
-
-        private void splashscreen_Load(object sender, EventArgs e)
+        private void CloseBox_Click(object sender, EventArgs e)
         {
-            Timer t = new Timer();
-            t.Interval = 1000;
-            t.Tick += new EventHandler(CheckInternet);
-            t.Start();
+            Application.Exit();
+        }
+        private void txtUsername_TextChanged(object sender, EventArgs e)
+        {
+            girisbtn.Enabled = txtUsername.Text.Length >= 2;
         }
 
-        private void CheckInternet(object sender, EventArgs e)
+        private void UpdateSession(MSession session)
         {
-            // İnternet bağlantısını kontrol edin
-            if (NetworkInterface.GetIsNetworkAvailable())
+            var mainForm = new Main();
+            mainForm.UpdateSession(session);
+            mainForm.FormClosed += (s, e) => this.Close();
+            mainForm.Show();
+            this.Hide();
+        }
+
+        private void TimerEventProcessor(object sender, EventArgs e)
+        {
+            UpdateSession(MSession.GetOfflineSession(txtUsername.Text));
+            Timer1.Stop();
+        }
+
+
+
+        private void Init_Data()
+        {
+            if (Properties.Settings.Default.Username != string.Empty)
             {
-                // İnternet bağlantısı varsa, loadingtxt'ye Bağlantı kuruldu yazın
-                loadingtxt.Text = "Bağlantı kuruldu";
+                if (Properties.Settings.Default.RememberMe == true)
+                {
+                    txtUsername.Text = Properties.Settings.Default.Username;
+                    Remember.Checked = true;
+                }
+                else
+                {
+                    txtUsername.Text = Properties.Settings.Default.Username;
+                }
+            }
+        }
 
-                // Timer'ı durdurun
-                (sender as Timer).Stop();
-
-                // Yeni Timer oluşturun ve her 2000 milisaniye (2 saniye) çalışması için ayarlayın
-                Timer t = new Timer();
-                t.Interval = 100;
-                t.Tick += new EventHandler(UpdateUI);
-                t.Start();
+        private void Save_Data()
+        {
+            if (Remember.Checked)
+            {
+                Properties.Settings.Default.Username = txtUsername.Text.Trim();
+                Properties.Settings.Default.RememberMe = true;
             }
             else
             {
-                // İnternet bağlantısı yoksa, loadingtxt'ye Bağlantı kurulamadı yazın
-                loadingtxt.Text = "Bağlantı kurulamadı. Yeniden deneniyor...";
+                Properties.Settings.Default.Username = "";
+                Properties.Settings.Default.RememberMe = false;
+            }
+            Properties.Settings.Default.Save();
+        }
+        private void girisbtn_Click(object sender, EventArgs e)
+        {
+            string input = txtUsername.Text.ToLower();
+            if (!string.IsNullOrEmpty(txtUsername.Text) && Regex.IsMatch(txtUsername.Text, "^[a-zA-Z]+$"))
+            {
+                if (input.Length < 2)
+                {
+                    hatatxt.Text = "Lütfen 2 den fazla harf girin";
+                    return;
+                }
+                txtUsername.Visible = false;
+                guna2HtmlLabel2.Visible = false;
+                Remember.Visible = false;
+                girisbtn.Visible = false;
+                hatatxt.Visible = false;
+
+                Timer1.Tick += new EventHandler(TimerEventProcessor);
+                Timer1.Start();
+
+                loadingbar.Visible = true;
+
+                Save_Data();
+            }
+            else
+            {
+                hatatxt.Text = "Lütfen sadece ingilizce harfler kullanın";
             }
         }
 
-        private void UpdateUI(object sender, EventArgs e)
+        private void txtUsername_KeyPress(object sender, KeyPressEventArgs e)
         {
-            // Loadingbarı 10 arttırın
-            loadingBar.Value = Math.Min(loadingBar.Value + 10, 100);
-
-            // Her 2 saniye, loadingtxt'nin metnini değiştirin
-            counter++;
-            if (counter == 2 || counter == 4 || counter == 6 || counter == 8)
+            if (!char.IsLetter(e.KeyChar) && !char.IsControl(e.KeyChar) && !char.IsWhiteSpace(e.KeyChar))
             {
-                switch (counter)
-                {
-                    case 2:
-                        loadingtxt.Text = "Kontrol Ediliyor...";
-                        break;
-                    case 4:
-                        loadingtxt.Text = "Kontrol Edildi";
-                        break;
-                    case 6:
-                        loadingtxt.Text = "Kontrol Başarılı";
-                        break;
-                    case 8:
-                        loadingtxt.Text = "Başlatılıyor...";
-                        break;
-                }
-            }
-
-            // Loadingbar 100 olduğunda Login formuna geçiş yapın
-            if (loadingBar.Value == 100)
-            {
-                Login loginForm = new Login();
-                loginForm.Show();
-                (sender as Timer).Stop();
-                Hide();
+                e.Handled = true;
             }
         }
     }
